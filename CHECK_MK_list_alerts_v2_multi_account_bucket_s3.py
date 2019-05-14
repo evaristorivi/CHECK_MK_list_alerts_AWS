@@ -34,13 +34,13 @@ def load_obj(name):
 def end(state, message):
     """Return the error"""        
     if state is 0:
-        print("OK: " + "\n" + str(message) + "|state=" + str(state))
+        print("OK: " + str(message) + "|state=" + str(state))
         sys.exit(state)
     elif state is 1:
-	print("WARNING: " + "\n" + str(message) + "|state=" + str(state))
+        print("WARNING: " + str(message) + "|state=" + str(state))
         sys.exit(state)
     else:
-        print("CRITICAL: " + "\n" + str(message) + "|state=" + str(state))
+        print("CRITICAL: " + str(message) + "|state=" + str(state))
         sys.exit(state)
 
 # Devuelve la hora actual(UTC)
@@ -70,48 +70,47 @@ def list_alarms():
     s3_client = boto3.client('s3')
     s3_client.download_file(BUCKET, FICHERO_DATOS, '/tmp/datadowload.pkl')
     data=load_obj('datadowload')
+    for a in data:
+        for item in a:
+ 
+            # Hora de última modificación del estado de la alrma
+            alarm_time = int(item['StateUpdatedTimestamp'].strftime('%s'))
+            # Diferencia de la hora actual - la hora de la última modificación del estado de la alarma
+            diff = hora_actual_utc() - alarm_time
+            #print diff
+            # Guardamos en una lista todas las alarmas.
+            # Si la diferencia es mayor que: #30 minutos==1800
+            
+            if diff > 1800:
+                alertas=True
+                if item['StateValue']=='ALARM':
+                    contadoralarm = contadoralarm+1
+                    # Array de todas las alarmas con estado ALARM
+                    alarmalarms.append((item['AlarmArn'],item['StateValue']))
+                    alarmalarms.append("\n")
+                    tipo='ALARM'
+                elif item['StateValue']=='INSUFFICIENT_DATA':
+                    contadorins = contadorins+1
+                    tipo='INSUFFICIENT_DATA'
+                    # Array de todas las alarmas con estado INSUFFICIENT_DATA
+                    insalarms.append((item['AlarmArn'],item['StateValue']))
+                    insalarms.append("\n")
+            # Todas las alarmas que no son OK
+            fullalarms=[insalarms,alarmalarms]
 
-    alarmstatus = (data['MetricAlarms'])
-    for item in alarmstatus:
-        # Hora de última modificación del estado de la alerta
-        alarm_time = int(item['StateUpdatedTimestamp'].strftime('%s'))
-        # Diferencia de la hora actual - la hora de la última modificación del estado de la alerta
-        diff = hora_actual_utc() - alarm_time
-        #print diff
-        # Guardamos en una lista todas las alertas.
-        # Si la diferencia es mayor que: #30 minutos==1800
-        
-        if diff > 1800:
-            alertas=True
-            if item['StateValue']=='ALARM':
-                contadoralarm = contadoralarm+1
-                # Array de todas las alertas con estado ALARM
-                alarmalarms.append((item['AlarmArn'],item['StateValue']))
-                alarmalarms.append("\n")
-                tipo='ALARM'
-            elif item['StateValue']=='INSUFFICIENT_DATA':
-                contadorins = contadorins+1
-                tipo='INSUFFICIENT_DATA'
-                # Array de todas las alertas con estado INSUFFICIENT_DATA
-                insalarms.append((item['AlarmArn'],item['StateValue']))
-                insalarms.append("\n")
-    # Todas las alertas que no son OK
-    fullalarms=[insalarms,alarmalarms]
-    print "\n"
-    alarmalarms.append("\n")
-    insalarms.append("\n")
 
     if alertas is True and tipo=='INSUFFICIENT_DATA':
+        #pprint(alarmstatus)
         message="Hay " + str(contadorins) + " alerta/s que llevan más de 30 minutos con estado INSUFFICIENT_DATA \n" + str(fullalarms)
         end(1, message)
     elif alertas is True and tipo=='ALARM':
-	print tipo
+        print tipo
         message="Hay " + str(contadoralarm) + " alerta/s que llevan más de 30 minutos con estado ALARM \n" + str(fullalarms)
         end(2, message)
     else:
-	print tipo
-        message="No hay problemas con las alertas \n" + str(fullalarms)
+        print tipo
+        message="No hay problemas con las alertas \n"
         end(0, message)
-            
+                
 
 list_alarms()
